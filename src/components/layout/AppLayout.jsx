@@ -3,7 +3,7 @@ import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import { useApp, TOAST_ICONS } from '../../context/AppContext';
 import { X } from 'lucide-react';
-import SahayAssistant from '../sahay/SahayAssistant';
+import SaiAssistant from '../sai/SaiAssistant';
 
 export default function AppLayout() {
   const { toasts, dismissToast, mobileNavOpen, setMobileNavOpen } = useApp();
@@ -30,7 +30,7 @@ export default function AppLayout() {
           );
         })}
       </div>
-      <SahayAssistant />
+      <SaiAssistant />
     </div>
   );
 }

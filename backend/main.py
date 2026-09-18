@@ -10,7 +10,7 @@ from voice.input import listen
 from voice.output import speak
 
 
-app = FastAPI(title="E-Rakshan Sahay Voice Bridge")
+app = FastAPI(title="E-Rakshan SAI Voice Bridge")
 
 app.add_middleware(
     CORSMiddleware,
@@ -75,11 +75,11 @@ def strip_wake(text: str) -> tuple[bool, str]:
     lower = text.lower().strip()
 
     wake_phrases = (
-        "hello sahay",
-        "yo sahay",
-        "hey sahay",
-        "hi sahay",
-        "sahay",
+        "hello SAI",
+        "yo SAI",
+        "hey SAI",
+        "hi SAI",
+        "SAI",
         "hello sai",
         "yo sai",
         "hey sai",
@@ -224,7 +224,7 @@ async def startup_event():
     threading.Thread(
         target=voice_loop,
         daemon=True,
-        name="sahay-jarvis-voice"
+        name="SAI-jarvis-voice"
     ).start()
 
 
@@ -232,7 +232,7 @@ async def startup_event():
 async def health():
     return {
         "ok": True,
-        "service": "sahay-voice-bridge",
+        "service": "SAI-voice-bridge",
         **snapshot(),
     }
 

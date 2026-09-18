@@ -275,13 +275,13 @@ export default function TacticalMap({ height, onIncidentDrop }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapReady, demo.evaluated, demo.roads, demo.shelters, demo.incidents, demo.safeSites, demo.effectiveRedzones, mapCtx.assignments, visible.habitations, visible.redzones, visible.safesites, visible.shelters, visible.roads, visible.incidents, visible.assignments, mapCtx.opacities.redzones, selected]);
 
-  /* ---- Sahay AI location marker ---- */
+  /* ---- SAI AI location marker ---- */
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapCtx.aiMarker) return undefined;
     const marker = mapCtx.aiMarker;
     const icon = L.divIcon({
-      className: 'sahay-ai-location-marker',
+      className: 'sai-ai-location-marker',
       html: '<span></span>',
       iconSize: [18, 18],
       iconAnchor: [9, 9],

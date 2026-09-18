@@ -27,7 +27,7 @@ export function AuthProvider({ children }) {
 
     setUser(u);
     saveLS('session', u);
-    sessionStorage.setItem('sahay_just_logged_in', 'true');
+    sessionStorage.setItem('sai_just_logged_in', 'true');
 
     return u;
   }, []);
