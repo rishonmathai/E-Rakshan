@@ -1,114 +1,77 @@
-# E-Rakshan — Hazard-to-Relocation Decision Support Platform
+# E-Rakshan Citizen App
 
-**district-scale disaster decision-support prototype (frontend)**
+Responsive React + Vite citizen safety interface for E-Rakshan.
 
-E-Rakshan converts heterogeneous geospatial & incident data into *prioritised evacuation and
-shelter-allocation decisions*, implementing the full documented decision chain:
-
-```
-Hazard → Vulnerability → Priority → Safe Site → Capacity → Route → Optimised Relocation Decision
-```
-
-The UI follows the platform architecture poster: a dark navy command console with cyan / teal,
-lime-green, orange and purple accents. OSIRIS (Operational Situation & Risk Intelligence System)
-is treated as the intelligence-aggregation layer, exactly as recommended in the solution document.
-
----
-
-## ✨ Interactive modules
-
-| Route | Module | What you can do |
-|---|---|---|
-| `/dashboard` | **Command Dashboard** | KPIs, live situational ticker, mini tactical map, simulation triggers (rainfall slider, road blockage, SOS burst), OSIRIS telemetry |
-| `/map` | **Tactical Map** | Leaflet map with 8 toggleable layers, evidence popups with inline actions, incident drop-pin mode, road blockage simulation, animated OSIRIS live tracks, basemap switcher, opacity controls |
-| `/habitations` | **Habitations** | Search / filter / sort the settlement register, export CSV, per-settlement explainable risk breakdown drawer |
-| `/risk` | **Red-Zone Indexer** | Tune the 6 hazard-factor weights → every score, band, zone and KPI recomputes live; hazard × vulnerability matrix; dynamic red-zone list with severity drift |
-| `/relocation` | **Relocation Engine** | Pick source settlements, tune MILP objective weights & constraints, run the capacity-constrained solver with an animated convergence trace, view assignment routes on the map |
-| `/sites` | **Safe Sites** | Suitability scoring (30/20/15/15/10/10 framework), amenity filters, fly-to on map |
-| `/capacity` | **Shelter Capacity** | Interactive occupancy gauges (±25/±100, sliders), close/reopen shelters, network pressure alerts |
-| `/optimization` | **Optimiser (MILP)** | Compare strategy presets (balanced / speed / safety / comfort), convergence chart, post-allocation utilisation, export plan |
-| `/field` | **Field Reports** | Submit geo-referenced reports, drive the unverified → verified → responding → resolved pipeline, watch OSIRIS confidence rise on verification |
-| `/alerts` | **Alert Center** | Live mock-WebSocket feed, severity/status filters, acknowledge & resolve, test-burst injection, OSIRIS source register |
-| `/reports` | **Incident Reports** | Report builder, printable situation report (print stylesheet = clean PDF), CSV export with decision log |
-| `/admin` | **Administration** | Commander-only RBAC console: team roles, feed cadence, scenario events, basemap defaults |
-
-**Demo logins** (also autofill buttons on the login page):
-
-| Persona | Email | Password |
-|---|---|---|
-| District Commander | `commander@erakshan.in` | `demo123` |
-| Field Officer | `field@erakshan.in` | `demo123` |
-| Risk Analyst | `analyst@erakshan.in` | `demo123` |
-
----
-
-## 🧠 Analytics engines (in-browser, mirroring the backend design)
-
-* **Hazard score** — weighted blend of normalised rainfall, slope, river proximity, drainage
-  deficit, relative elevation and historical events. Banded per the documented classification:
-  `0–0.25 Monitor · 0.25–0.5 Prepare · 0.5–0.75 Issue Warning · 0.75–1.0 Evacuate/Relocate`.
-* **Priority index** — `0.45·hazard + 0.35·vulnerability + 0.20·exposure` (vulnerability blends
-  elderly/children/disabled share, fragile housing, no-vehicle share, hospital access).
-* **Relocation solver** — capacity-constrained allocation (greedy initial + pair-swap
-  improvement) honouring: capacity caps, operational status, medical matching, max travel
-  distance, red-zone route exposure and road-blockage penalties — with the mandated
-  infeasibility fallback (overflow, flagged shortfall, temporary-shelter recommendation,
-  escalation alert).
-* **OSIRIS confidence** — `reliability × recency × verification × authority`; citizen reports
-  never auto-create red zones until verified.
-* **Isolation detection** — settlements whose *every* connecting road is blocked are flagged
-  `ISOLATED — NO SAFE LAND ROUTE` and escalated.
-
-## 🗂 Demo dataset
-
-`public/demo-data/*.geojson` — 36 habitations, 7 dynamic red zones, 12 safe sites,
-14 shelters, 20 road segments and 8 incidents over a realistic **Wayanad (Kerala)**
-layout (Chooralmala–Mundakkai slope, Banasura, Panamaram, Kabani lowlands…).
-Regenerate with `python3 scripts/generate_demo_data.py` (seeded, reproducible).
-
-Data gaps are disclosed in-UI, per the research doc: census counts are labelled estimates,
-shelter capacities are labelled simulated/needs-verification, CCTV is optional.
-
-## 🚀 Quickstart
+## Run
 
 ```bash
 npm install
-npm run dev          # http://localhost:5173
+npm run dev
 ```
 
-Production build: `npm run build` → `npm run preview`.
+## Important browser permissions
 
-No backend is required — `VITE_DEMO_MODE=true` serves everything from the mock layer.
-To attach the FastAPI backend later, copy `.env.example` → `.env` and set:
+- **Microphone:** SAI voice commands use the browser Web Speech API. On `localhost` or HTTPS, allow Microphone when prompted. If the browser does not expose speech recognition, SAI also provides a typed command fallback.
+- **Location:** Live Map and current-location Weather use the browser Geolocation API. Allow location when requested.
 
-```
-VITE_DEMO_MODE=false
-VITE_API_BASE_URL=http://localhost:8000/api/v1
-VITE_WS_URL=ws://localhost:8000/api/v1/events
-```
+## Live Weather
 
-The API surface (`services/api/endpoints.js`) mirrors the recommended backend:
-`/hazards/current`, `/settlements/priorities`, `/shelters`, `/relocation/solve`,
-`/incidents`, `/routes/{o}/{d}`, `WS /events`.
+Weather is connected to the public **Open-Meteo** API. No API key is required.
 
-## 🧱 Stack
+Features:
+- current GPS weather
+- search any supported city/place
+- current temperature, feels-like, humidity, wind and precipitation
+- five-day forecast
+- automatic refresh every 10 minutes
+- animated weather presentation
 
-React 18 · Vite 5 · React Router 6 · Leaflet 1.9 · Recharts · lucide-react · hand-rolled
-design system (`src/styles/*.css`) using the poster's palette.
+## Functional navigation and offline improvements
 
-## 📁 Structure
+- Map search now recenters the map and marks the searched/selected location.
+- Recenter uses the actual current GPS position.
+- Red-zone, hazard, shelter, road and incident layers are independently toggleable.
+- Shelter Details opens a functional detail view and can launch navigation.
+- Online routing evaluates available alternatives for mapped red-zone and blocked-road exposure.
+- Turn instructions include distances such as turns in metres/kilometres, with localized spoken guidance.
+- Cached routes can be reused offline; when no road route is cached, the app labels its fallback as offline guidance rather than presenting it as a live safe road route.
+- A production service worker caches the application shell and previously viewed OpenStreetMap tiles for limited offline map access.
+- Citizen API mode can load alerts, shelters, hazards, red zones, roads and incidents from the Django API.
 
-```
-src/
-├── components/   common · layout · maps · charts · risk · habitations
-│                 relocation · sites · shelters · field · alerts · reports
-├── pages/        auth · dashboard · map · habitations · risk · relocation
-│                 sites · capacity · optimization · field · alerts · reports · admin
-├── context/      AuthContext · AppContext · MapContext · AlertContext · DemoContext
-├── services/     api (client, endpoints) · mock · websocket · providers
-├── data/         demo (scenario) · geojson (loaders) · schemas
-├── hooks/ utils/ constants/ routes/ styles/
-└── App.jsx · main.jsx
-```
+## Maps and routing
 
-> Demo prototype for Smart India Hackathon 2026 — all data is simulated; not for operational use.
+- OpenStreetMap tiles are used by default.
+- Location search uses Open-Meteo geocoding.
+- Safe Navigation attempts an online OSRM route and falls back to the configured citizen API/demo route.
+- The user's GPS position is kept separate from a searched location, so the current-location marker remains correct.
+
+## Languages
+
+English is the default. Hindi and Marathi are available in Profile & Settings. The interface and SAI voice/commands update with the selected language.
+
+## Theme
+
+Profile & Settings includes a Light/Dark theme toggle. The selection is persisted in local storage and applied across the application.
+
+## Profile
+
+Profile editing, saved locations, emergency contacts, language, theme, notification preferences, voice preferences and location preference are stored locally in the demo build.
+
+## Backend
+
+Set `VITE_API_BASE_URL` and `VITE_DEMO_MODE=false` in a local `.env` when connecting the Government Django API. The demo build uses local citizen-safe mock data for non-weather safety layers until the backend is connected.
+
+## SAI
+
+SAI supports English, Hindi and Marathi command patterns such as:
+
+- Show alerts / अलर्ट दिखाओ / सूचना दाखवा
+- Find nearest shelter / नज़दीकी आश्रय / जवळचा निवारा
+- Show weather / मौसम दिखाओ / हवामान दाखवा
+- Open map / नक्शा खोलो / नकाशा उघडा
+- Start navigation / नेविगेशन शुरू करो / नेव्हिगेशन सुरू करा
+- Emergency SOS / आपातकालीन SOS / आपत्कालीन SOS
+
+## Responsive design
+
+The UI is designed for phones, tablets and desktop screens, including responsive navigation, maps, cards, modals, SAI panel, weather and profile settings.

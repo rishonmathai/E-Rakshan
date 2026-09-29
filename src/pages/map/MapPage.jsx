@@ -1,113 +1,107 @@
-import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import PageHeader from '../../components/layout/PageHeader';
-import TacticalMap from '../../components/maps/TacticalMap';
-import Drawer from '../../components/common/Drawer';
-import Badge from '../../components/common/Badge';
-import HabitationDetail from '../../components/habitations/HabitationDetail';
-import { useDemo } from '../../context/DemoContext';
-import { useMapCtx } from '../../context/MapContext';
-import { centroidOf } from '../../utils/geo';
-import { fmtInt, fmtPct } from '../../utils/format';
+import { useEffect, useMemo, useState } from 'react';
+import { Search, SlidersHorizontal, Navigation, MapPin, LocateFixed, X, AlertTriangle, Construction, Home, MapPinned, CheckCircle2 } from 'lucide-react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import PageHeader from '../../components/common/PageHeader';
+import HazardMap from '../../components/map/HazardMap';
+import { useApp } from '../../context/AppContext';
+import { getCurrentLocation } from '../../services/location/locationService';
+import { searchLocation, cacheLocation } from '../../services/location/searchService';
 
-export default function MapPage() {
-  const demo = useDemo();
-  const mapCtx = useMapCtx();
-  const loc = useLocation();
-  const [drawer, setDrawer] = useState(null); // {type, id}
+export default function MapPage(){
+ const {mapData,shelters,location,setLocation,addSavedLocation,setToast}=useApp();
+ const [params]=useSearchParams(); const navigate=useNavigate();
+ const [query,setQuery]=useState(''); const [selected,setSelected]=useState(null); const [focusPosition,setFocusPosition]=useState(null);
+ const [layers,setLayers]=useState({redZones:true,hazards:true,shelters:true,roads:true,incidents:true}); const [searching,setSearching]=useState(false);
+ const focus=params.get('focus');
 
-  useEffect(() => {
-    const focusId = loc.state?.focusId;
-    if (!focusId) return;
-    if (demo.habById[focusId]) {
-      const f = demo.habById[focusId];
-      mapCtx.flyTo(centroidOf(f.geometry), 13);
-      mapCtx.select('habitation', focusId);
-    } else {
-      const sh = demo.shelters.features.find((x) => x.properties.id === focusId)
-        || demo.safeSites.features.find((x) => x.properties.id === focusId);
-      if (sh) { mapCtx.flyTo(centroidOf(sh.geometry), 14); mapCtx.select('shelter', focusId); }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loc.state, demo.habById]);
+ useEffect(()=>{
+   if(focus==='redzones')setLayers(l=>({...l,redZones:true,hazards:true,roads:false,incidents:false}));
+   if(focus==='roads')setLayers(l=>({...l,redZones:false,hazards:false,roads:true,incidents:false}));
+ },[focus]);
 
-  /* Deep-link drawer from map popups */
-  useEffect(() => {
-    if (mapCtx.selected && ['habitation', 'redzone', 'shelter', 'site'].includes(mapCtx.selected.type)) {
-      setDrawer(mapCtx.selected);
-    }
-  }, [mapCtx.selected]);
+ const visibleData=useMemo(()=>({
+   redZones:layers.redZones?mapData.redZones:[],
+   hazards:layers.hazards?mapData.hazards:[],
+   roads:layers.roads?mapData.roads:[],
+   incidents:layers.incidents?mapData.incidents:[]
+ }),[mapData,layers]);
 
-  const closeDrawer = () => { setDrawer(null); mapCtx.setSelected(null); };
+ const locate=async()=>{
+   try{
+     const p=await getCurrentLocation();
+     setLocation(p);
+     setSelected({...p,name:'Your current location',area:`Accuracy ±${Math.round(p.accuracy||0)} m`});
+     setFocusPosition({...p,zoom:15});
+     setToast('Your current GPS location is highlighted on the map.');
+   }catch{setToast('GPS unavailable. Allow location permission in your browser.')}
+ };
 
-  const renderDrawer = () => {
-    if (!drawer) return null;
-    if (drawer.type === 'habitation') {
-      const f = demo.habById[drawer.id];
-      if (!f) return null;
-      const c = centroidOf(f.geometry);
-      return (
-        <Drawer title={f.properties.name} subtitle={`Habitation ${f.properties.id} · ${f.properties.panchayath}`} onClose={closeDrawer}>
-          <HabitationDetail
-            feature={f}
-            analysis={f.analysis}
-            isolated={demo.isIsolated(f.properties.id)}
-            nearest={demo.nearestShelters(c)}
-          />
-        </Drawer>
-      );
-    }
-    if (drawer.type === 'redzone') {
-      const f = demo.effectiveRedzones.features.find((x) => x.properties.id === drawer.id);
-      if (!f) return null;
-      const p = f.properties;
-      return (
-        <Drawer title={p.name} subtitle={`Red zone ${p.id} · ${p.hazard_type}`} onClose={closeDrawer}>
-          <div className="col gap-2">
-            <Badge tone={p.severity > 0.75 ? 'red' : p.severity > 0.5 ? 'orange' : 'amber'} dot pulse={p.severity > 0.75}>severity {p.severity.toFixed(2)} (dynamic)</Badge>
-            <div className="card" style={{ padding: 12 }}><span className="tiny text-faint">Probability of recurrence</span><div className="mono strong">{fmtPct(p.probability)}</div></div>
-            <div className="card" style={{ padding: 12 }}><span className="tiny text-faint">Population inside zone</span><div className="mono strong">{fmtInt(p.population_exposed)}</div></div>
-            <div className="card" style={{ padding: 12 }}><span className="tiny text-faint">Model source</span><div className="small">{p.source || 'Hazard Engine — rainfall + slope + drainage blend'}</div></div>
-            <div className="tiny text-faint mt-2">Zones are recomputed whenever rainfall inputs, river state or factor weights change — this is the dynamic red-zone indexer.</div>
-          </div>
-        </Drawer>
-      );
-    }
-    if (drawer.type === 'shelter') {
-      const f = demo.shelters.features.find((x) => x.properties.id === drawer.id);
-      if (!f) return null;
-      const p = f.properties;
-      return (
-        <Drawer title={p.name} subtitle={`Shelter ${p.id} · ${p.type}`} onClose={closeDrawer}>
-          <div className="col gap-2">
-            <div className="card" style={{ padding: 12 }}><span className="tiny text-faint">Occupancy</span><div className="mono strong">{fmtInt(p.occupancy)} / {fmtInt(p.capacity)}</div></div>
-            <div className="card" style={{ padding: 12 }}><span className="tiny text-faint">Amenities</span><div className="small">medical {p.medical_support ? '✓' : '✖'} · water {fmtInt(p.water_kl)} kL · sanitation {p.sanitation_ok ? 'OK' : 'strained'}</div></div>
-          </div>
-        </Drawer>
-      );
-    }
-    return null;
-  };
+ const search=async()=>{
+   const value=query.trim();
+   if(!value)return;
+   setSearching(true);
+   try{
+     const results=await searchLocation(value,{online:navigator.onLine});
+     if(!results.length){
+       setToast(navigator.onLine
+         ? `No exact location found for "${value}". Try a city, district, state or landmark.`
+         : `"${value}" is not in the offline location cache. Search it once while online to save it for offline use.`);
+       return;
+     }
+     const r=cacheLocation(results[0]);
+     const p={
+       lat:r.lat,lng:r.lng,name:r.name,
+       area:r.area||[r.admin,r.country].filter(Boolean).join(', '),
+       bbox:r.bbox,zoom:r.zoom,
+       id:r.id
+     };
+     setSelected(p);
+     setFocusPosition(p);
+     setToast(`Showing ${r.name}${r.admin?', '+r.admin:''}${r.country?', '+r.country:''}${navigator.onLine?'':' · offline cache'}`);
+   }catch{setToast('Location search failed. Try again or use a previously cached location.')}
+   finally{setSearching(false)}
+ };
 
-  return (
-    <div className="page">
-      <PageHeader
-        kicker="Common Operational Picture"
-        title="Tactical Map"
-        subtitle="Toggle layers, click any feature for evidence popups, drop incident pins, simulate road blockages."
-      />
-      <TacticalMap
-        onIncidentDrop={(latlng) => {
-          demo.addIncident({
-            coordinates: [latlng.lng, latlng.lat],
-            type: 'Flooded Road', severity: 'high',
-            source: 'Field Officer', description: 'Dropped from tactical map — update details in Field Reports.',
-            location_name: `${latlng.lat.toFixed(3)}°N ${latlng.lng.toFixed(3)}°E`,
-          });
-          mapCtx.setMode('view');
-        }}
-      />
-      {renderDrawer()}
-    </div>
-  );
+ useEffect(()=>{
+   const id=params.get('alert');
+   if(id){
+     const a=[...mapData.hazards,...mapData.roads,...mapData.incidents].find(x=>x.id===id)||mapData.redZones.find(x=>x.id===id);
+     if(a){setSelected(a);setFocusPosition(a)}
+   }
+ },[params.toString()]);
+
+ const select=p=>{
+   setSelected(p); setFocusPosition({...p,zoom:14});
+   setToast(`Selected ${p.name||`${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`}`);
+ };
+
+ return <div className="page full-map-page">
+   <PageHeader title="Live Map" subtitle="Hazards, shelters and road status"/>
+   <div className="map-toolbar">
+     <div className="search-box">
+       <Search/><input aria-label="Search any location" placeholder="Search city, state, district or landmark…" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&search()}/>
+       {query&&<button onClick={()=>setQuery('')} aria-label="Clear search"><X/></button>}
+     </div>
+     <button className="filter-btn" onClick={()=>setLayers(l=>({...l,redZones:!l.redZones,hazards:!l.hazards,roads:!l.roads,incidents:!l.incidents}))}><SlidersHorizontal/> Layers</button>
+   </div>
+   <div className="map-search-actions">
+     <button className="primary-btn" onClick={search} disabled={searching}><Search/>{searching?'Searching…':'Search location'}</button>
+     <button className="secondary-btn" onClick={locate}><LocateFixed/> My location</button>
+   </div>
+   <div className="layer-chips">
+     <button className={layers.redZones?'selected':''} onClick={()=>setLayers(l=>({...l,redZones:!l.redZones}))}><AlertTriangle/> Red zones</button>
+     <button className={layers.hazards?'selected':''} onClick={()=>setLayers(l=>({...l,hazards:!l.hazards}))}><AlertTriangle/> Hazards</button>
+     <button className={layers.shelters?'selected':''} onClick={()=>setLayers(l=>({...l,shelters:!l.shelters}))}><Home/> Shelters</button>
+     <button className={layers.roads?'selected':''} onClick={()=>setLayers(l=>({...l,roads:!l.roads}))}><Construction/> Roads</button>
+     <button className={layers.incidents?'selected':''} onClick={()=>setLayers(l=>({...l,incidents:!l.incidents}))}>Incidents</button>
+   </div>
+   {selected?.name&&<div className="map-location-banner"><MapPinned size={16}/><span><b>{selected.name}</b><small>{selected.area||'Location found'}</small></span><CheckCircle2 size={16}/></div>}
+   <HazardMap mapData={visibleData} shelters={layers.shelters?shelters:[]} userLocation={location} selectedLocation={selected} focusPosition={focusPosition} onSelect={select} className="map-large"/>
+   <div className="map-legend"><span><i className="legend red"></i> Red zone</span><span><i className="legend orange"></i> Road issue</span><span><i className="legend green"></i> Shelter</span><span><i className="legend blue"></i> Your/selected location</span></div>
+   {selected&&<div className="selected-location">
+     <MapPin/><div><b>{selected.name||'Selected location'}</b><span>{selected.area||`${selected.lat.toFixed(5)}, ${selected.lng.toFixed(5)}`}</span></div>
+     <button onClick={()=>{addSavedLocation({id:selected.id||`${selected.lat},${selected.lng}`,name:selected.name||'Saved location',lat:selected.lat,lng:selected.lng});setToast('Location saved for quick access.')}}>Save</button>
+     <button onClick={()=>{setToast('Destination selected for safe navigation.');navigate(`/navigation?destination=${encodeURIComponent(selected.name||'Selected location')}`)}}><Navigation size={16}/> Use for route</button>
+   </div>}
+ </div>;
 }
