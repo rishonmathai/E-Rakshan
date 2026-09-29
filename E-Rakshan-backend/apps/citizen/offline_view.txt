@@ -1,0 +1,67 @@
+from pathlib import Path
+
+class CitizenOfflineRoadPackView(APIView):
+    """
+    Serve the prepared Karjat offline road pack.
+
+    The pack is generated once while online and stored with the backend.
+    The Citizen App can cache it for true offline navigation.
+    """
+
+    permission_classes = [AllowAny]
+
+    LAT = 18.910974
+    LNG = 73.326958
+    RADIUS_METERS = 1000
+
+    def get(self, request):
+        pack_path = (
+            Path(__file__).resolve().parent
+            / "data"
+            / "offline"
+            / "karjat_roads.json"
+        )
+
+        try:
+            with pack_path.open("r", encoding="utf-8") as file:
+                pack = json.load(file)
+        except FileNotFoundError:
+            return Response(
+                {
+                    "ok": False,
+                    "error": "Prepared Karjat offline road pack is missing.",
+                },
+                status=404,
+            )
+        except json.JSONDecodeError as exc:
+            return Response(
+                {
+                    "ok": False,
+                    "error": "Prepared Karjat offline road pack is invalid.",
+                    "detail": str(exc),
+                },
+                status=500,
+            )
+
+        return Response(
+            {
+                "ok": True,
+                "mode": "prepared",
+                "provider": pack.get("provider", "OSRM/OpenStreetMap"),
+                "center": pack.get(
+                    "center",
+                    {
+                        "lat": self.LAT,
+                        "lng": self.LNG,
+                    },
+                ),
+                "radiusMeters": pack.get(
+                    "radiusMeters",
+                    self.RADIUS_METERS,
+                ),
+                "points": pack.get("points", []),
+                "routes": pack.get("routes", []),
+                "routeCount": len(pack.get("routes", [])),
+                "preparedAt": pack.get("preparedAt"),
+            }
+        )
